@@ -1,0 +1,345 @@
+---
+title: "FM_Assignment 2"
+author: "Thanh Nguyen"
+date: "2026-10-01"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Data preparation
+library(tidyverse)
+library(class)
+
+bank <- read.csv("C:/Users/beanv/OneDrive/Desktop/Fundamental of machine learning/UniversalBank.csv")
+head(bank)
+str(bank)
+
+names(bank)
+summary(bank)
+
+table(bank$Education)
+
+bank$Education <- as.factor(bank$Education)
+str(bank$Education)
+education_dummy <- model.matrix(~ Education - 1, data = bank)
+head(education_dummy)
+
+bank_model <- cbind(bank, education_dummy)
+head(bank_model)
+
+bank_model <- bank_model %>%
+  select(
+    -ID,
+    -ZIP.Code,
+    -Education
+  )
+
+names(bank_model)
+
+x <- bank_model %>%
+  select(-Personal.Loan)
+y <- bank_model$Personal.Loan
+
+names(x)
+table(y)
+
+set.seed(123)
+train_index <- sample(
+  1:nrow(x),
+  size = 0.60 * nrow(x)
+)
+x_train <- x[train_index, ]
+y_train <- y[train_index]
+x_valid <- x[-train_index, ]
+y_valid <- y[-train_index]
+
+nrow(x_train)
+nrow(x_valid)
+
+train_means <- sapply(x_train, mean)
+train_sds <- sapply(x_train, sd)
+
+train_means
+train_sds
+
+x_train_scaled <- scale(x_train, center = train_means, scale = train_sds)
+x_valid_scaled <- scale(x_valid, center = train_means, scale = train_sds)
+
+head(x_train_scaled)
+head(x_valid_scaled)
+```
+
+```{r}
+#question 1
+customer1 <- data.frame(
+  Age = 40,
+  Experience = 10,
+  Income = 84, 
+  Family = 2,
+  CCAvg = 2,
+  Mortage = 0, 
+  Securities.Account = 0, 
+  CD.Account = 0,
+  Online = 1,
+  CreditCard = 1,
+  Education1 = 0,
+  Education2 = 1,
+  Education3 = 0
+)
+customer1
+
+customer1_scaled <- scale(
+  customer1,
+  center = train_means,
+  scale = train_sds
+)
+customer1_scaled
+
+customer1_prediction <- knn(
+  train = x_train_scaled,
+  test = customer1_scaled,
+  cl = y_train,
+  k = 1
+)
+customer1_prediction
+
+#the customer 1 is classified as 0 which means he/she didn't accept the personal loan
+```
+
+```{r}
+#question 2
+k_values <- c(1, 3, 5, 7, 9, 11, 15, 21)
+
+validation_accuracy <- numeric(length(k_values))
+
+for (i in seq_along(k_values)) {
+  prediction <- knn(
+    train = x_train_scaled,
+    test = x_valid_scaled,
+    cl = y_train,
+    k = k_values[i]
+  )
+  
+  validation_accuracy[i] <- mean(prediction == y_valid)
+}
+
+data.frame(
+  k = k_values,
+  accuracy = validation_accuracy
+)
+
+
+results <- data.frame(
+  k = k_values,
+  accuracy = validation_accuracy
+)
+
+results
+
+training_accuracy <- numeric(length(k_values))
+
+for (i in seq_along(k_values)) {
+  prediction_train <- knn(
+    train = x_train_scaled,
+    test = x_train_scaled,
+    cl = y_train,
+    k = k_values[i]
+  )
+  training_accuracy[i] <- mean(prediction_train == y_train)
+}
+
+data.frame(
+  k = k_values,
+  training_accuracy = training_accuracy,
+  validation_accuracy = validation_accuracy
+)
+
+#After doing test several k values by using the validation data, I saw that the validation accuracy was highest at k=1 which is 96.35%, but also the training accuracy at the same level was 100%, which indicates the greater risk of overfitting. When I looked at k=3, the training accuracy decreased to 97.40% while the validation accuracy still keep at high at 95.85%. Larger K values resulted in lower validation accuray. By that results, k=3 would be a good value to balance between reducing overfitting and maintaining good predictive performance.
+```
+
+```{r}
+#question 3
+validation_prediction <- knn(
+  train = x_train_scaled,
+  test = x_valid_scaled,
+  cl = y_train,
+  k = 3
+)
+
+confusion_matrix <- table(
+  Actual = y_valid,
+  Predicted = validation_prediction
+)
+
+confusion_matrix
+```
+```{r}
+#question 4
+customer2 <- data.frame(
+  Age = 40, 
+  Experience = 10,
+  Income = 84, 
+  Family = 2,
+  CCAvg = 2,
+  Education1 = 0,
+  Education2 = 1,
+  Education3 = 0,
+  Mortage = 0, 
+  Securities.Account = 0, 
+  CD.Account = 0,
+  Online = 1,
+  CreditCard = 1
+)
+
+customer2
+
+customer2_scaled <- scale(
+  customer2,
+  center = train_means,
+  scale = train_sds
+)
+
+customer2_scaled
+
+customer2_prediction <- knn(
+  train = x_train_scaled,
+  test = customer2_scaled,
+  cl = y_train, 
+  k = 3
+)
+
+customer2_prediction
+
+#With the k value at 3, the kNN model classified customer 2 as 0. so, the model said that customer 2 would not accept the personal loan
+```
+
+```{r}
+#Question 5
+
+set.seed(456)
+
+n <- nrow(x)
+
+train_index_50 <- sample(
+  1:n,
+  size = 0.50 * n
+)
+
+remaining_index <- setdiff(
+  1:n,
+  train_index_50
+)
+
+valid_index_30 <- sample(
+  remaining_index,
+  size = 0.30 * n
+)
+
+test_index_20 <- setdiff(
+  remaining_index,
+  valid_index_30
+)
+
+length(train_index_50)
+length(valid_index_30)
+length(test_index_20)
+
+x_train50 <- x[train_index_50, ]
+y_train50 <- y[train_index_50]
+
+x_valid30 <- x[valid_index_30, ]
+y_valid30 <- y[valid_index_30]
+
+x_test20 <- x[test_index_20, ]
+y_test20 <- y[test_index_20]
+
+dim(x_train50)
+dim(x_valid30)
+dim(x_test20)
+
+train50_means <- sapply(x_train50, mean)
+train50_sds <- sapply(x_train50, sd)
+
+train50_means
+train50_sds
+
+x_train50_scaled <- scale(
+  x_train50,
+  center = train50_means,
+  scale = train50_sds
+)
+
+x_valid30_scaled <- scale(
+  x_valid30,
+  center = train50_means,
+  scale = train50_sds
+)
+
+x_test20_scaled <- scale(
+  x_test20,
+  center = train50_means,
+  scale = train50_sds
+)
+
+#Training Prediction
+prediction_train50 <- knn(
+  train = x_train50_scaled,
+  test = x_train50_scaled,
+  cl = y_train50,
+  k=3
+)
+
+#Validation Prediction
+prediction_valid30 <- knn(
+  train = x_train50_scaled,
+  test = x_valid30_scaled,
+  cl = y_train50,
+  k = 3
+)
+
+#Test Prediction
+prediction_test20 <- knn(
+  train = x_train50_scaled,
+  test = x_test20_scaled,
+  cl = y_train50,
+  k = 3
+)
+
+confusion_train50 <- table(
+  Actual = y_train50,
+  Predicted = prediction_train50
+)
+
+confusion_train50
+
+confusion_valid30 <- table(
+  Actual = y_valid30,
+  Predicted = prediction_valid30
+)
+
+confusion_valid30
+
+confusion_test20 <- table(
+  Actual = y_test20,
+  Predicted = prediction_test20
+)
+
+confusion_test20
+
+training_accuracy50 <- mean(prediction_train50 == y_train50)
+valid_accuracy30 <- mean(prediction_valid30 == y_valid30)
+test_accuracy20 <- mean(prediction_test20 == y_test20)
+
+training_accuracy50
+valid_accuracy30
+test_accuracy20
+
+# The value of training accuracy, valid accuracy and test accurary was 97.76%, 95.67% and 95.90% respectively. Valid and test accuracy had the similar value with only a small difference while training accuracy was obviously higher because the training observation was used the reference data to making the prediction on training. These ideas implied that the model performanced consistently on the unseen validation and testing data.  
+```
+
