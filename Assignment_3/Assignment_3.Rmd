@@ -1,0 +1,143 @@
+---
+title: "Assigment 3_FML"
+author: "Thanh Nguyen"
+date: "2026-10-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Part A
+universalbank1 <- read.csv("C:/Users/beanv/OneDrive/Desktop/Fundamental of machine learning/UniversalBank.csv")
+
+head(universalbank1)
+names(universalbank1)
+dim(universalbank1)
+
+set.seed(123)
+train_index <- sample(
+  1:nrow(universalbank1),
+  size = 0.60 *nrow(universalbank1)
+)
+train_data <- universalbank1[train_index, ]
+valid_data <- universalbank1[-train_index,]
+nrow(train_data)
+nrow(valid_data)
+pivot_A <- with(
+  train_data,
+  table(CreditCard, Personal.Loan, Online)
+)
+pivot_A
+#I created a pivot table using the training data with CreditCard and Personal.Loan as the row and Online as the column. The pivot table reports the number of customers own the credit card, using online banking activity and have the personal loan acceptance. For example, among customers who use online banking(online=1) and have the bank's credit card(CreditCard=1), the table show 475 did not accept the loan (Loan=0) while 57 accpept it(Loan=1)
+```
+
+```{r}
+#Part B
+loan_accept <- pivot_A["1", "1", "1"]
+total_customers <- sum(pivot_A["1", , "1"])
+probability <- loan_accept / total_customers
+probability
+
+#The probability that this customer accept the loan offer is approximately 10.71%
+
+```
+
+```{r}
+#Part C
+pivot_online <- with(
+  train_data,
+  table(Personal.Loan, Online)
+)
+pivot_online
+
+pivot_creditcard <- with(
+  train_data,
+  table(Personal.Loan, CreditCard)
+)
+pivot_creditcard
+```
+
+```{r}
+#Part D
+p_cc1_loan1 <- 91 / (187 + 91)
+p_online1_loan1 <- 179 / (99 + 179)
+p_loan1 <- (99 + 179) / 3000
+p_cc1_loan0 <- 792 / (1930 + 792)
+p_online1_loan0 <- 1620 / (1102 + 1620)
+p_loan0 <- (1102 + 1620) / 3000
+
+p_cc1_loan1
+p_online1_loan1
+p_loan1
+p_cc1_loan0
+p_online1_loan0
+p_loan0
+```
+
+```{r}
+#Part E
+numerator_loan1 <- p_cc1_loan1 *
+  p_online1_loan1 *
+  p_loan1
+
+numerator_loan0 <- p_cc1_loan0 *
+  p_online1_loan0 *
+  p_loan0
+
+probability_E <- numerator_loan1 /
+  (numerator_loan1 + numerator_loan0)
+
+probability_E
+```
+
+```{r}
+#Part F
+probability
+probability_E
+difference <- abs(probability - probability_E)
+difference
+#The estimate differ is approximately 0.34% so the more accurate estimate is from Part B. Because it uses the actual observed proportion of customers with CC=1 and Online=1 who acccepted the loan, which is given the result at 10.71%. While in Part E, we use the Naive Bayes assumption that the predictors are conditionally independent given the loan outcome.
+```
+
+```{r}
+#Part G
+library(e1071)
+
+train_nb <- train_data[, c(
+  "CreditCard",
+  "Online",
+  "Personal.Loan"
+)]
+
+train_nb$CreditCard <- factor(train_nb$CreditCard)
+train_nb$Online <- factor(train_nb$Online)
+train_nb$Personal.Loan <- factor(train_nb$Personal.Loan)
+
+nb_model <- naiveBayes(
+  Personal.Loan ~ CreditCard + Online,
+  data = train_nb
+)
+
+nb_model
+
+nb_train_prob <- predict(
+  nb_model,
+  newdata = train_nb,
+  type = "raw"
+)
+
+matching_rows <- which(
+  train_nb$CreditCard == "1" &
+    train_nb$Online =="1"
+)
+
+nb_train_prob[matching_rows[1], ]
+
+nb_train_prob[matching_rows[1], "1"]
+
+#The Naive Bayes model estimates the probability that a customer with a credit card and online banking accepts a personal loan as approximately 11.06%. This result is matched with the estimate calculated from part E. Both methods produce same probability because they use the same Naive Bayes formula and training data.
+```
+
