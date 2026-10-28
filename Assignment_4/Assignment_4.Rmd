@@ -1,0 +1,118 @@
+---
+title: "Assignment 4"
+author: "Thanh Nguyen"
+date: "2026-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Part A
+pharma <- read.csv("C:/Users/beanv/OneDrive/Desktop/Fundamental of machine learning/Pharmaceuticals.csv")
+head(pharma)
+str(pharma)
+dim(pharma)
+names(pharma)
+
+pharma_num <- pharma[, c(
+  "Market_Cap",
+  "Beta",
+  "PE_Ratio",
+  "ROE",
+  "ROA",
+  "Asset_Turnover",
+  "Leverage",
+  "Rev_Growth",
+  "Net_Profit_Margin"
+)]
+head(pharma_num)
+summary(pharma_num)
+colSums(is.na(pharma_num))
+
+pharma_scaled <- scale(pharma_num)
+head(pharma_num)
+round(colMeans(pharma_scaled), 2)
+round(apply(pharma_scaled, 2, sd), 2)
+
+set.seed(123)
+wss <- sapply(1:8, function(k) {
+  kmeans(pharma_scaled, centers = k, nstart = 25)$tot.withinss
+})
+plot(
+  1:8, wss, 
+  type = "b",
+  pch = 19,
+  xlab = "Number of Clusters (k)",
+  ylab = "Total Within-Cluster Sum of Squares",
+  main = "Elbow Method for Pharmaceutical Firms"
+)
+
+library(cluster)
+silhouette_scores <- sapply(2:8, function(k) {
+  km <- kmeans(pharma_scaled, centers = k, nstart = 25)
+  sil <- silhouette(km$cluster, dist(pharma_scaled))
+  mean(sil[, 3])
+})
+data.frame(
+  k = 2:8,
+  Average_Silhouette = round(silhouette_scores, 3)
+)
+
+set.seed(123)
+pharma_kmeans <- kmeans(
+  pharma_scaled,
+  centers = 3,
+  nstart = 25
+)
+pharma_kmeans
+pharma$Cluster <- factor(pharma_kmeans$cluster)
+table(pharma$Cluster)
+aggregate(
+  pharma_num,
+  by = list(Cluster = pharma$Cluster),
+  FUN = mean
+)
+pharma[, c(1, ncol(pharma))]
+table(pharma$Cluster)
+cluster_means <- aggregate(
+  pharma_num,
+  by = list(Cluster = pharma$Cluster),
+  FUN = mean
+)
+cluster_means[, -1] <- round(cluster_means[, -1], 3)
+print(cluster_means)
+```
+
+```{r}
+#Part B
+cluster_means_b <- aggregate(
+  pharma_num,
+  by = list(Cluster = pharma$Cluster),
+  FUN = mean
+)
+cluster_means[, -1] <- round(cluster_means[, -1], 3)
+print(cluster_means)
+split(pharma$Symbol, pharma$Cluster)
+```
+
+```{r}
+#Part C
+table(pharma$Cluster, pharma$Median_Recommendation)
+table(pharma$Cluster, pharma$Location)
+table(pharma$Cluster, pharma$Exchange)
+#For median recommendation, cluster 1 include the only strong buy recommendation while cluster 2 has the most hold recommendation. CLuster 3 has more moderate buy recommendation than hold. In location, Cluster 2 and 3 has mostly of US firms while cluster 1 is diversifying. For stock exchange, all firms in cluster 1 and 2 are listed on NYSE while cluster 3 includes four NYSE, one Amex and one NASDAQ.
+```
+```{r}
+#Part D
+cluster_names <- c(
+  "1" = "High P/E, Lower-Profitability Firms",
+  "2" = "Large, Highly Profitable Firms",
+  "3" = "High-Growth, High-Leverage Firms"
+)
+cluster_names
+#Cluster 1: High P/E, Lower-Profitability Firms; Cluster 2: Large, Highly Profitable Firms; Cluster 3: High-Growth, High-Leverage Firms
+```
+
